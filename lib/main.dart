@@ -18,6 +18,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:pinput/pinput.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:swipable_stack/swipable_stack.dart';
+import 'package:system_proxy/system_proxy.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
@@ -30,6 +31,21 @@ double cardScale = 1.0;
 double? cardScreenHeight;
 String appVersion = "";
 String appBuildNumber = "";
+
+class ProxiedHttpOverrides extends HttpOverrides {
+  String? _port;
+  String? _host;
+  ProxiedHttpOverrides(this._host, this._port);
+
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    return super.createHttpClient(context)
+      // set proxy
+      ..findProxy = (uri) {
+        return _host != null ? "PROXY $_host:$_port;" : 'DIRECT';
+      };
+  }
+}
 
 class NotifyingPageView extends StatefulWidget {
   final ValueNotifier<double> notifier;
@@ -82,11 +98,12 @@ class AppScrollBehavior extends MaterialScrollBehavior {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  HttpProxy httpProxy = await HttpProxy.createHttpProxy();
-  httpProxy.host = "10.16.1.1"; // replace with your server ip
-  httpProxy.port = "8080"; // replace with your server port
-  HttpOverrides.global = httpProxy;
-  developer.log(Platform.environment.toString());
+  Map<String, String?>? proxy = await SystemProxy.getProxySettings();
+  if (proxy == null) {
+    proxy = {'host': null, 'port': null};
+  }
+  HttpOverrides.global = new ProxiedHttpOverrides(proxy['host'], proxy['port']);
+
   PackageInfo.fromPlatform().then((packageInfo) {
     appVersion = packageInfo.version;
     appBuildNumber = packageInfo.buildNumber;
@@ -704,46 +721,52 @@ class _ArgosPageState extends State<ArgosPage> with TickerProviderStateMixin {
         ),
         Align(
             alignment: Alignment.bottomRight,
-            child: InkWell(
-              onTap: () {
-                showModalBottomSheet(
-                    context: context,
-                    builder: (context) {
-                      return ListView(
-                        children: [
-                          Padding(
-                            padding: EdgeInsets.all(fontSize * 0.5),
-                            child: MarkdownBody(
-                                onTapLink: (text, href, title) {
-                                  if (href != null) {
-                                    launchUrl(Uri.parse(href));
-                                  }
-                                },
-                                styleSheet: MarkdownStyleSheet(
-                                    p: TextStyle(fontSize: fontSize * 0.8),
-                                    h1: TextStyle(fontSize: fontSize * 1.2),
-                                    h2: TextStyle(fontSize: fontSize * 1.0)),
-                                data:
-                                    '# Argos\n\nVersion: $appVersion+$appBuildNumber  \nProgrammierung: Dr. Michael Specht\n\n## Quelltext\n\n[https://github.com/specht/argos](https://github.com/specht/argos)  \n[https://github.com/specht/argos-server](https://github.com/specht/argos-server)\n\n## Verwendetes Material\n\nApp-Icon von [AndreaCharlesta](https://www.freepik.com/free-vector/butterfly-logo-colorful-gradient-illustrations_31557352.htm) / Freepik  \nHintergrundbild von [rawpixel.com](https://www.freepik.com/free-vector/education-pattern-background-doodle-style_16332411.htm) / Freepik  \nKartenhintergrund von [kues1](https://www.freepik.com/free-photo/white-paper-texture_1012270.htm) / Freepik'),
-                          ),
-                        ],
-                      );
-                    });
-              },
-              child: Container(
-                decoration: BoxDecoration(
-                  color: const Color(0x40000000),
-                  borderRadius: BorderRadius.circular(fontSize),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.all(fontSize * 0.3),
-                  child: Icon(
-                    Icons.info_outline,
-                    color: Colors.white,
-                    size: fontSize,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                InkWell(
+                  onTap: () {
+                    showModalBottomSheet(
+                        context: context,
+                        builder: (context) {
+                          return ListView(
+                            children: [
+                              Padding(
+                                padding: EdgeInsets.all(fontSize * 0.5),
+                                child: MarkdownBody(
+                                    onTapLink: (text, href, title) {
+                                      if (href != null) {
+                                        launchUrl(Uri.parse(href));
+                                      }
+                                    },
+                                    styleSheet: MarkdownStyleSheet(
+                                        p: TextStyle(fontSize: fontSize * 0.8),
+                                        h1: TextStyle(fontSize: fontSize * 1.2),
+                                        h2: TextStyle(
+                                            fontSize: fontSize * 1.0)),
+                                    data:
+                                        '# Argos\n\nVersion: $appVersion+$appBuildNumber  \nProgrammierung: Dr. Michael Specht\n\n## Quelltext\n\n[https://github.com/specht/argos](https://github.com/specht/argos)  \n[https://github.com/specht/argos-server](https://github.com/specht/argos-server)\n\n## Verwendetes Material\n\nApp-Icon von [AndreaCharlesta](https://www.freepik.com/free-vector/butterfly-logo-colorful-gradient-illustrations_31557352.htm) / Freepik  \nHintergrundbild von [rawpixel.com](https://www.freepik.com/free-vector/education-pattern-background-doodle-style_16332411.htm) / Freepik  \nKartenhintergrund von [kues1](https://www.freepik.com/free-photo/white-paper-texture_1012270.htm) / Freepik'),
+                              ),
+                            ],
+                          );
+                        });
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0x40000000),
+                      borderRadius: BorderRadius.circular(fontSize),
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.all(fontSize * 0.3),
+                      child: Icon(
+                        Icons.info_outline,
+                        color: Colors.white,
+                        size: fontSize,
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             )),
       ],
     );
