@@ -40,6 +40,7 @@ dependencies:
   cupertino_icons: ^1.0.2
   flutter_markdown: ^0.6.12
   http: ^0.13.5
+  http_proxy: ^1.2.0
   package_info_plus: ^1.4.3+1
   pinput: ^2.2.12
   shared_preferences: ^2.0.15

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
+import 'dart:io';
 import 'dart:math';
 import 'dart:ui' as ui;
 
@@ -12,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_proxy/http_proxy.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:pinput/pinput.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -78,8 +80,13 @@ class AppScrollBehavior extends MaterialScrollBehavior {
       };
 }
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  HttpProxy httpProxy = await HttpProxy.createHttpProxy();
+  httpProxy.host = "10.16.1.1"; // replace with your server ip
+  httpProxy.port = "8080"; // replace with your server port
+  HttpOverrides.global = httpProxy;
+  developer.log(Platform.environment.toString());
   PackageInfo.fromPlatform().then((packageInfo) {
     appVersion = packageInfo.version;
     appBuildNumber = packageInfo.buildNumber;
