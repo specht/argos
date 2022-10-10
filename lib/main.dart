@@ -24,6 +24,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 const String argosServer = 'argos.nhcham.org';
 const String EMOJI_ACCEPT = '😀';
 const String EMOJI_DISCUSS = '🤔';
+const double MAX_DISPLAY_EMOJI_SCALE = 3.0;
 const int cardWidth = 1024;
 const int cardHeight = 512;
 const int heartBeatDelay = 20;
@@ -1368,7 +1369,7 @@ class _ArgosPageState extends State<ArgosPage> with TickerProviderStateMixin {
                                   ),
                                 ),
                                 Transform.translate(
-                                  offset: Offset(-fontSize * 15, -fontSize * 2),
+                                  offset: Offset(-fontSize * 15, -fontSize / 2),
                                   child: AnimatedBuilder(
                                     animation: discussScaleAnimationController,
                                     builder: (context, widget) {
@@ -1389,14 +1390,16 @@ class _ArgosPageState extends State<ArgosPage> with TickerProviderStateMixin {
                                             ],
                                           ),
                                           child: CircleAvatar(
-                                            radius: fontSize * 4,
+                                            radius: fontSize *
+                                                MAX_DISPLAY_EMOJI_SCALE,
                                             backgroundColor:
                                                 const Color(0xe0ffffff),
                                             foregroundColor: Colors.black,
                                             child: Text(EMOJI_DISCUSS,
                                                 textAlign: TextAlign.center,
                                                 style: TextStyle(
-                                                    fontSize: fontSize * 4)),
+                                                    fontSize: fontSize *
+                                                        MAX_DISPLAY_EMOJI_SCALE)),
                                           ),
                                         ),
                                       );
@@ -1404,7 +1407,7 @@ class _ArgosPageState extends State<ArgosPage> with TickerProviderStateMixin {
                                   ),
                                 ),
                                 Transform.translate(
-                                  offset: Offset(fontSize * 15, -fontSize * 2),
+                                  offset: Offset(fontSize * 15, -fontSize / 2),
                                   child: AnimatedBuilder(
                                     animation: acceptScaleAnimationController,
                                     builder: (context, widget) {
@@ -1425,14 +1428,16 @@ class _ArgosPageState extends State<ArgosPage> with TickerProviderStateMixin {
                                             ],
                                           ),
                                           child: CircleAvatar(
-                                            radius: fontSize * 4,
+                                            radius: fontSize *
+                                                MAX_DISPLAY_EMOJI_SCALE,
                                             backgroundColor:
                                                 const Color(0xe0ffffff),
                                             foregroundColor: Colors.black,
                                             child: Text(EMOJI_ACCEPT,
                                                 textAlign: TextAlign.center,
                                                 style: TextStyle(
-                                                    fontSize: fontSize * 4)),
+                                                    fontSize: fontSize *
+                                                        MAX_DISPLAY_EMOJI_SCALE)),
                                           ),
                                         ),
                                       );
