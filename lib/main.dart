@@ -13,7 +13,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:http/http.dart' as http;
-import 'package:http_proxy/http_proxy.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:pinput/pinput.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -98,12 +97,6 @@ class AppScrollBehavior extends MaterialScrollBehavior {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  Map<String, String?>? proxy = await SystemProxy.getProxySettings();
-  if (proxy == null) {
-    proxy = {'host': null, 'port': null};
-  }
-  HttpOverrides.global = new ProxiedHttpOverrides(proxy['host'], proxy['port']);
-
   PackageInfo.fromPlatform().then((packageInfo) {
     appVersion = packageInfo.version;
     appBuildNumber = packageInfo.buildNumber;
@@ -212,16 +205,22 @@ class SlimButton extends StatelessWidget {
               borderRadius: BorderRadius.all(Radius.circular(fontSize * 0.3))),
           child: InkWell(
             onTap: onPressed,
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                  horizontal: fontSize, vertical: fontSize * 0.5),
-              child: Text(label,
-                  style: TextStyle(
-                      color: onPressed == null ? Colors.black : Colors.white,
-                      fontSize: fontSize * 0.8,
-                      fontWeight: onPressed == null
-                          ? FontWeight.normal
-                          : FontWeight.bold)),
+            child: Column(
+              children: [
+                Padding(
+                  padding: EdgeInsets.symmetric(
+                      horizontal: fontSize, vertical: fontSize * 0.5),
+                  child: Text(label,
+                      style: TextStyle(
+                          color:
+                              onPressed == null ? Colors.black : Colors.white,
+                          fontSize: fontSize * 0.8,
+                          fontWeight: onPressed == null
+                              ? FontWeight.normal
+                              : FontWeight.bold)),
+                ),
+                LinearProgressIndicator(value: null),
+              ],
             ),
           )),
     );
@@ -260,6 +259,7 @@ class _ArgosPageState extends State<ArgosPage> with TickerProviderStateMixin {
 
   int? showIndex;
   String? showPng;
+  bool waiting = false;
 
   bool showExampleImage = false;
 
@@ -346,6 +346,7 @@ class _ArgosPageState extends State<ArgosPage> with TickerProviderStateMixin {
         participantCount = 0;
         submissions = [];
         setState(() {
+          waiting = false;
           mode = Mode.host;
           hostCardAnimationController.reset();
         });
@@ -648,6 +649,21 @@ class _ArgosPageState extends State<ArgosPage> with TickerProviderStateMixin {
     }));
   }
 
+  void connectAsHost() async {
+    setState(() {
+      waiting = true;
+    });
+    Map<String, String?>? proxy = await SystemProxy.getProxySettings();
+    if (proxy == null) {
+      proxy = {'host': null, 'port': null};
+    }
+    developer.log("Using proxy: ${proxy}");
+    HttpOverrides.global =
+        new ProxiedHttpOverrides(proxy['host'], proxy['port']);
+
+    connect({'command': 'new'});
+  }
+
   Widget buildModeNone(BuildContext context, double fontSize) {
     return Stack(
       children: [
@@ -710,13 +726,20 @@ class _ArgosPageState extends State<ArgosPage> with TickerProviderStateMixin {
                     ),
                   ),
                 ),
+                if (waiting)
+                  Center(
+                      child: SizedBox(
+                          width: fontSize * 3,
+                          height: fontSize * 3,
+                          child: CircularProgressIndicator(
+                            value: null,
+                            color: Colors.white,
+                          ))),
                 SlimButton(
-                    label: 'Eigenes Quiz starten',
-                    fontSize: fontSize,
-                    onPressed: () {
-                      connect({'command': 'new'});
-                      // ws!.sink.add('{"command": "new"}');
-                    }),
+                  label: 'Eigenes Quiz starten',
+                  fontSize: fontSize,
+                  onPressed: () => connectAsHost(),
+                ),
               ]),
         ),
         Align(
