@@ -22,6 +22,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 const String argosServer = 'argos.nhcham.org';
+const String EMOJI_ACCEPT = '😀';
+const String EMOJI_DISCUSS = '🤔';
 const int cardWidth = 1024;
 const int cardHeight = 512;
 const int heartBeatDelay = 20;
@@ -205,22 +207,16 @@ class SlimButton extends StatelessWidget {
               borderRadius: BorderRadius.all(Radius.circular(fontSize * 0.3))),
           child: InkWell(
             onTap: onPressed,
-            child: Column(
-              children: [
-                Padding(
-                  padding: EdgeInsets.symmetric(
-                      horizontal: fontSize, vertical: fontSize * 0.5),
-                  child: Text(label,
-                      style: TextStyle(
-                          color:
-                              onPressed == null ? Colors.black : Colors.white,
-                          fontSize: fontSize * 0.8,
-                          fontWeight: onPressed == null
-                              ? FontWeight.normal
-                              : FontWeight.bold)),
-                ),
-                LinearProgressIndicator(value: null),
-              ],
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                  horizontal: fontSize, vertical: fontSize * 0.5),
+              child: Text(label,
+                  style: TextStyle(
+                      color: onPressed == null ? Colors.black : Colors.white,
+                      fontSize: fontSize * 0.8,
+                      fontWeight: onPressed == null
+                          ? FontWeight.normal
+                          : FontWeight.bold)),
             ),
           )),
     );
@@ -260,6 +256,8 @@ class _ArgosPageState extends State<ArgosPage> with TickerProviderStateMixin {
   int? showIndex;
   String? showPng;
   bool waiting = false;
+  late AnimationController discussScaleAnimationController;
+  late AnimationController acceptScaleAnimationController;
 
   bool showExampleImage = false;
 
@@ -275,13 +273,13 @@ class _ArgosPageState extends State<ArgosPage> with TickerProviderStateMixin {
     super.initState();
     _controller = SwipableStackController()..addListener(_listenController);
     hostCardAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
+        vsync: this, duration: const Duration(milliseconds: 300));
     participantCardAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
+        vsync: this, duration: const Duration(milliseconds: 300));
+    discussScaleAnimationController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 300));
+    acceptScaleAnimationController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 300));
 
     // launch websocket heartbeat ping
     Random rng = Random();
@@ -320,6 +318,8 @@ class _ArgosPageState extends State<ArgosPage> with TickerProviderStateMixin {
     _pageController.dispose();
     hostCardAnimationController.dispose();
     participantCardAnimationController.dispose();
+    discussScaleAnimationController.dispose();
+    acceptScaleAnimationController.dispose();
     _pageNotifier.dispose();
     super.dispose();
   }
@@ -349,6 +349,7 @@ class _ArgosPageState extends State<ArgosPage> with TickerProviderStateMixin {
           waiting = false;
           mode = Mode.host;
           hostCardAnimationController.reset();
+          _pageNotifier.value = 1;
         });
         SharedPreferences.getInstance().then((prefs) {
           prefs.setString('sid', data['sid']);
@@ -380,6 +381,8 @@ class _ArgosPageState extends State<ArgosPage> with TickerProviderStateMixin {
         }
         setState(() {
           mode = Mode.host;
+          hostCardAnimationController.reset();
+          _pageNotifier.value = 1;
         });
       } else if (data['command'] == 'become_display') {
         participantPin = data['participant_pin'];
@@ -423,6 +426,16 @@ class _ArgosPageState extends State<ArgosPage> with TickerProviderStateMixin {
           taskRunning = data['task_running'];
           showIndex = data['show_index'];
           showPng = (showIndex == null) ? null : data['show_png'];
+          if (mode == Mode.display) {
+            discussCount = data['discuss_count'];
+            acceptCount = data['accept_count'];
+            discussScaleAnimationController.animateTo(
+                pow(discussCount.toDouble() / participantCount, 0.8).toDouble(),
+                curve: Curves.easeInOut);
+            acceptScaleAnimationController.animateTo(
+                pow(acceptCount.toDouble() / participantCount, 0.8).toDouble(),
+                curve: Curves.easeInOut);
+          }
         });
       } else if (data['command'] == 'submission') {
         setState(() {
@@ -433,6 +446,8 @@ class _ArgosPageState extends State<ArgosPage> with TickerProviderStateMixin {
           clearMode = false;
           hostCardAnimationController.reset();
           participantCardAnimationController.reset();
+          discussScaleAnimationController.reset();
+          acceptScaleAnimationController.reset();
           sentCard = false;
           sentCardReaction = null;
           clearImage();
@@ -653,13 +668,15 @@ class _ArgosPageState extends State<ArgosPage> with TickerProviderStateMixin {
     setState(() {
       waiting = true;
     });
-    Map<String, String?>? proxy = await SystemProxy.getProxySettings();
-    if (proxy == null) {
-      proxy = {'host': null, 'port': null};
+    if (!kIsWeb) {
+      Map<String, String?>? proxy = await SystemProxy.getProxySettings();
+      if (proxy == null) {
+        proxy = {'host': null, 'port': null};
+      }
+      developer.log("Using proxy: ${proxy}");
+      HttpOverrides.global =
+          new ProxiedHttpOverrides(proxy['host'], proxy['port']);
     }
-    developer.log("Using proxy: ${proxy}");
-    HttpOverrides.global =
-        new ProxiedHttpOverrides(proxy['host'], proxy['port']);
 
     connect({'command': 'new'});
   }
@@ -726,15 +743,15 @@ class _ArgosPageState extends State<ArgosPage> with TickerProviderStateMixin {
                     ),
                   ),
                 ),
-                if (waiting)
-                  Center(
-                      child: SizedBox(
-                          width: fontSize * 3,
-                          height: fontSize * 3,
-                          child: CircularProgressIndicator(
-                            value: null,
-                            color: Colors.white,
-                          ))),
+                // if (waiting)
+                //   Center(
+                //       child: SizedBox(
+                //           width: fontSize * 3,
+                //           height: fontSize * 3,
+                //           child: CircularProgressIndicator(
+                //             value: null,
+                //             color: Colors.white,
+                //           ))),
                 SlimButton(
                   label: 'Eigenes Quiz starten',
                   fontSize: fontSize,
@@ -768,7 +785,7 @@ class _ArgosPageState extends State<ArgosPage> with TickerProviderStateMixin {
                                         h2: TextStyle(
                                             fontSize: fontSize * 1.0)),
                                     data:
-                                        '# Argos\n\nVersion: $appVersion+$appBuildNumber  \nProgrammierung: Dr. Michael Specht\n\n## Quelltext\n\n[https://github.com/specht/argos](https://github.com/specht/argos)  \n[https://github.com/specht/argos-server](https://github.com/specht/argos-server)\n\n## Verwendetes Material\n\nApp-Icon von [AndreaCharlesta](https://www.freepik.com/free-vector/butterfly-logo-colorful-gradient-illustrations_31557352.htm) / Freepik  \nHintergrundbild von [rawpixel.com](https://www.freepik.com/free-vector/education-pattern-background-doodle-style_16332411.htm) / Freepik  \nKartenhintergrund von [kues1](https://www.freepik.com/free-photo/white-paper-texture_1012270.htm) / Freepik'),
+                                        '# **Argos**\n\nVersion: $appVersion+$appBuildNumber  \nProgrammierung: Dr. Michael Specht\n\n## Quelltext\n\n[https://github.com/specht/argos](https://github.com/specht/argos)  \n[https://github.com/specht/argos-server](https://github.com/specht/argos-server)\n\n## Verwendetes Material\n\nApp-Icon von [AndreaCharlesta](https://www.freepik.com/free-vector/butterfly-logo-colorful-gradient-illustrations_31557352.htm) / Freepik  \nHintergrundbild von [rawpixel.com](https://www.freepik.com/free-vector/education-pattern-background-doodle-style_16332411.htm) / Freepik  \nKartenhintergrund von [kues1](https://www.freepik.com/free-photo/white-paper-texture_1012270.htm) / Freepik'),
                               ),
                             ],
                           );
@@ -1089,7 +1106,8 @@ class _ArgosPageState extends State<ArgosPage> with TickerProviderStateMixin {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('🤔', style: TextStyle(fontSize: fontSize * 2)),
+                        Text(EMOJI_DISCUSS,
+                            style: TextStyle(fontSize: fontSize * 2)),
                         CircleAvatar(
                           radius: fontSize,
                           backgroundColor:
@@ -1111,7 +1129,8 @@ class _ArgosPageState extends State<ArgosPage> with TickerProviderStateMixin {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('😀', style: TextStyle(fontSize: fontSize * 2)),
+                        Text(EMOJI_ACCEPT,
+                            style: TextStyle(fontSize: fontSize * 2)),
                         CircleAvatar(
                           radius: fontSize,
                           backgroundColor:
@@ -1269,78 +1288,158 @@ class _ArgosPageState extends State<ArgosPage> with TickerProviderStateMixin {
                               ),
                             ),
                           if (taskRunning)
-                            Align(
+                            Stack(
                               alignment: Alignment.center,
-                              child: Card(
-                                elevation: 10,
-                                child: Padding(
-                                  padding: EdgeInsets.fromLTRB(
-                                      fontSize, 0, fontSize, fontSize),
-                                  child: Column(
-                                    children: [
-                                      Padding(
-                                        padding: EdgeInsets.only(top: fontSize),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              'Antworten: ',
-                                              style: TextStyle(
-                                                  fontSize: fontSize * 1.4),
+                              children: [
+                                Align(
+                                  alignment: Alignment.center,
+                                  child: Card(
+                                    elevation: 10,
+                                    child: Padding(
+                                      padding: EdgeInsets.fromLTRB(
+                                          fontSize, 0, fontSize, fontSize),
+                                      child: Column(
+                                        children: [
+                                          Padding(
+                                            padding:
+                                                EdgeInsets.only(top: fontSize),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text(
+                                                  'Antworten: ',
+                                                  style: TextStyle(
+                                                      fontSize: fontSize * 1.4),
+                                                ),
+                                                AnimatedFlipCounter(
+                                                  duration: const Duration(
+                                                      milliseconds: 500),
+                                                  value:
+                                                      nonRejectedSubmissionCount,
+                                                  textStyle: TextStyle(
+                                                      fontSize: fontSize * 1.4),
+                                                ),
+                                                Text(
+                                                  ' von ',
+                                                  style: TextStyle(
+                                                      fontSize: fontSize * 1.4),
+                                                ),
+                                                AnimatedFlipCounter(
+                                                  duration: const Duration(
+                                                      milliseconds: 500),
+                                                  value: participantCount,
+                                                  textStyle: TextStyle(
+                                                      fontSize: fontSize * 1.4),
+                                                ),
+                                              ],
                                             ),
-                                            AnimatedFlipCounter(
-                                              duration: const Duration(
-                                                  milliseconds: 500),
-                                              value: nonRejectedSubmissionCount,
-                                              textStyle: TextStyle(
-                                                  fontSize: fontSize * 1.4),
-                                            ),
-                                            Text(
-                                              ' von ',
-                                              style: TextStyle(
-                                                  fontSize: fontSize * 1.4),
-                                            ),
-                                            AnimatedFlipCounter(
-                                              duration: const Duration(
-                                                  milliseconds: 500),
-                                              value: participantCount,
-                                              textStyle: TextStyle(
-                                                  fontSize: fontSize * 1.4),
-                                            ),
-                                          ],
-                                        ),
+                                          ),
+                                          Padding(
+                                            padding: EdgeInsets.all(fontSize),
+                                            child: SizedBox(
+                                                width: fontSize * 6,
+                                                height: fontSize * 6,
+                                                child: TweenAnimationBuilder<
+                                                    double>(
+                                                  duration: const Duration(
+                                                      milliseconds: 250),
+                                                  curve: Curves.easeInOut,
+                                                  tween: Tween<double>(
+                                                    begin: 0,
+                                                    end: participantCount == 0
+                                                        ? 0
+                                                        : nonRejectedSubmissionCount /
+                                                            participantCount,
+                                                  ),
+                                                  builder: (context, value,
+                                                          _) =>
+                                                      CircularProgressIndicator(
+                                                    backgroundColor:
+                                                        Colors.blue[100],
+                                                    color: Colors.blue[600],
+                                                    value: value,
+                                                    strokeWidth: 8,
+                                                  ),
+                                                )),
+                                          ),
+                                        ],
                                       ),
-                                      Padding(
-                                        padding: EdgeInsets.all(fontSize),
-                                        child: SizedBox(
-                                            width: fontSize * 6,
-                                            height: fontSize * 6,
-                                            child:
-                                                TweenAnimationBuilder<double>(
-                                              duration: const Duration(
-                                                  milliseconds: 250),
-                                              curve: Curves.easeInOut,
-                                              tween: Tween<double>(
-                                                begin: 0,
-                                                end: participantCount == 0
-                                                    ? 0
-                                                    : nonRejectedSubmissionCount /
-                                                        participantCount,
-                                              ),
-                                              builder: (context, value, _) =>
-                                                  CircularProgressIndicator(
-                                                backgroundColor:
-                                                    Colors.blue[100],
-                                                color: Colors.blue[600],
-                                                value: value,
-                                                strokeWidth: 8,
-                                              ),
-                                            )),
-                                      ),
-                                    ],
+                                    ),
                                   ),
                                 ),
-                              ),
+                                Transform.translate(
+                                  offset: Offset(-fontSize * 15, -fontSize * 2),
+                                  child: AnimatedBuilder(
+                                    animation: discussScaleAnimationController,
+                                    builder: (context, widget) {
+                                      return Transform.scale(
+                                        scale: discussScaleAnimationController
+                                                    .value *
+                                                0.8 +
+                                            0.2,
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xe0ffffff),
+                                            shape: BoxShape.circle,
+                                            boxShadow: [
+                                              BoxShadow(
+                                                  blurRadius: fontSize,
+                                                  color: Color(0x80000000),
+                                                  spreadRadius: 0)
+                                            ],
+                                          ),
+                                          child: CircleAvatar(
+                                            radius: fontSize * 4,
+                                            backgroundColor:
+                                                const Color(0xe0ffffff),
+                                            foregroundColor: Colors.black,
+                                            child: Text(EMOJI_DISCUSS,
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                    fontSize: fontSize * 4)),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                                Transform.translate(
+                                  offset: Offset(fontSize * 15, -fontSize * 2),
+                                  child: AnimatedBuilder(
+                                    animation: acceptScaleAnimationController,
+                                    builder: (context, widget) {
+                                      return Transform.scale(
+                                        scale: acceptScaleAnimationController
+                                                    .value *
+                                                0.8 +
+                                            0.2,
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xe0ffffff),
+                                            shape: BoxShape.circle,
+                                            boxShadow: [
+                                              BoxShadow(
+                                                  blurRadius: fontSize,
+                                                  color: Color(0x80000000),
+                                                  spreadRadius: 0)
+                                            ],
+                                          ),
+                                          child: CircleAvatar(
+                                            radius: fontSize * 4,
+                                            backgroundColor:
+                                                const Color(0xe0ffffff),
+                                            foregroundColor: Colors.black,
+                                            child: Text(EMOJI_ACCEPT,
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                    fontSize: fontSize * 4)),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
                             ),
                         ],
                       ),
@@ -1398,7 +1497,7 @@ class _ArgosPageState extends State<ArgosPage> with TickerProviderStateMixin {
                       Padding(
                         padding: EdgeInsets.all(fontSize / 2),
                         child: Text(
-                          '😀',
+                          EMOJI_ACCEPT,
                           style: TextStyle(fontSize: fontSize * 2.5),
                         ),
                       ),
@@ -1411,7 +1510,7 @@ class _ArgosPageState extends State<ArgosPage> with TickerProviderStateMixin {
                       Padding(
                         padding: const EdgeInsets.all(8.0),
                         child: Text(
-                          '🤔',
+                          EMOJI_DISCUSS,
                           style: TextStyle(fontSize: fontSize * 2.5),
                         ),
                       ),
