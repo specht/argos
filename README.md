@@ -2,7 +2,7 @@
 
 Eine kurze Demonstration gibt es hier:
 
-[![](https://img.youtube.com/vi/bbzitTxrSp0/maxresdefault.jpg)](https://youtu.be/bbzitTxrSp0 "Argos – handschriftliche Quizkarten im Unterricht")
+[![](https://img.youtube.com/vi/Rx7wJJPq9iQ/maxresdefault.jpg)](https://youtu.be/Rx7wJJPq9iQ "Argos – handschriftliche Quizkarten im Unterricht")
 
 ## Wo gibt es die App?
 
